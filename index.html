@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>对岸那棵树</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; background: #eef1ec; color: #1f2a24; line-height: 1.6; }
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 20px 14px 40px; }
+  h1 { font-size: 26px; letter-spacing: 1px; }
+  .lead { color: #4d5a52; font-size: 14px; margin: 4px 0 14px; }
+  .card { background: #fff; border-radius: 8px; padding: 14px; border: 1px solid #d3dcd4; margin-bottom: 14px; min-width: 0; }
+  .card h2 { font-size: 15px; color: #2c3a32; font-weight: 600; margin-bottom: 8px; overflow-wrap: anywhere; }
+  .fields { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px 10px; }
+  label { font-size: 12px; color: #55625a; display: block; overflow-wrap: anywhere; }
+  input, select { font: inherit; font-size: 14px; padding: 6px 8px; border: 1px solid #a9b6ad; border-radius: 5px; width: 100%; min-width: 0; background: #fff; font-variant-numeric: tabular-nums; }
+  .bad { border-color: #b4232c !important; background: #fff0f0 !important; }
+  button { font: inherit; font-size: 13px; padding: 6px 11px; border-radius: 5px; border: 1px solid #2f4a3c; background: #2f4a3c; color: #fff; cursor: pointer; }
+  button.ghost { background: #fff; color: #2f4a3c; }
+  .presets, .dl { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .err { display: none; background: #fff0f0; border: 1px solid #e3b0b3; color: #8a1c24; border-radius: 8px; padding: 10px 12px; margin-bottom: 14px; overflow-wrap: anywhere; }
+  .muted { color: #6b776f; font-size: 12px; }
+  #summary { font-size: 19px; font-weight: 700; overflow-wrap: anywhere; margin-bottom: 8px; color: #1d4b3a; }
+  #facts { margin: 8px 0 0 18px; font-size: 14px; } #facts li { margin: 3px 0; overflow-wrap: anywhere; }
+  /* 河面地图 */
+  .mapbox { position: relative; width: 100%; }
+  #map { display: block; width: 100%; min-width: 640px; height: auto; }
+  .legend { display: flex; gap: 6px 14px; flex-wrap: wrap; font-size: 12px; color: #4d5a52; margin-top: 6px; }
+  .legend label { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #33423a; cursor: pointer; }
+  .legend input { width: auto; }
+  .legend i { display: inline-block; width: 18px; height: 3px; border-radius: 2px; background: var(--c); }
+  /* 对照表 */
+  .scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table.cmp { border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; width: 100%; min-width: 620px; }
+  table.cmp th, table.cmp td { border-bottom: 1px solid #e3e9e4; padding: 6px 8px; text-align: right; white-space: nowrap; }
+  table.cmp th:first-child, table.cmp td:first-child { text-align: left; }
+  table.cmp th { background: #f3f6f3; font-weight: 600; }
+  table.cmp tr.win td { background: #e6f3ea; font-weight: 700; }
+  table.cmp td.no { color: #a0362b; }
+  table.cmp td i { display: inline-block; width: 12px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 6px; background: var(--c); }
+  .hint375 { display: none; }
+  #sugs { display: grid; gap: 8px; }
+  .sug { display: flex; gap: 10px; align-items: center; justify-content: space-between; border: 1px solid #dfe6e0; border-radius: 6px; padding: 8px 10px; }
+  .sug span { min-width: 0; overflow-wrap: anywhere; font-size: 14px; } .sug button { flex: none; }
+  .how { font-size: 13px; color: #2c3a32; } .how p { margin: 6px 0; } .how b { color: #1f2a24; }
+  @media (max-width: 720px) { .fields { grid-template-columns: repeat(2, minmax(0, 1fr)); } .hint375 { display: block; } }
+  @media (max-width: 480px) { .sug { flex-direction: column; align-items: stretch; } #summary { font-size: 16px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>对岸那棵树</h1>
+  <p class="lead">站在河这边，想游到对岸那棵树下。水在往下游流，河中间往往比岸边急。正对着游会被冲走，一直盯着树游会绕一条大弯，斜着往上游顶又可能游不动。填河宽、水速、你游多快、树在哪，这里把四种过法画在同一张河面上，算各要游多久、在哪上岸、还得走多远，挑出最快又游得完的那种。默认的河和人都是虚构的。</p>
+
+  <div class="card">
+    <h2>河和人</h2>
+    <div class="fields">
+      <div><label for="width">河宽（米）</label><input id="width" inputmode="decimal" maxlength="8"></div>
+      <div><label for="profile">水流分布</label><select id="profile"><option value="mid">中间快、两边慢</option><option value="flat">全河一样快</option></select></div>
+      <div><label for="uMid">河中间水速（米/秒）</label><input id="uMid" inputmode="decimal" maxlength="6"></div>
+      <div><label for="uBank">靠岸水速（米/秒）</label><input id="uBank" inputmode="decimal" maxlength="6"></div>
+      <div><label for="v">你在静水里的速度（米/秒）</label><input id="v" inputmode="decimal" maxlength="6"></div>
+      <div><label for="target">树在正对面往下游几米（上游填负数）</label><input id="target" inputmode="decimal" maxlength="8"></div>
+      <div><label for="walk">上岸后走路速度（米/秒）</label><input id="walk" inputmode="decimal" maxlength="6"></div>
+      <div><label for="limit">最多能连续游多久（分钟）</label><input id="limit" inputmode="decimal" maxlength="6"></div>
+    </div>
+    <p class="muted" style="margin-top:6px" id="paceNote"></p>
+    <div class="presets" id="presets"></div>
+  </div>
+
+  <div class="err" id="error"></div>
+
+  <div id="out">
+    <div class="card">
+      <div id="summary"></div>
+      <ul id="facts"></ul>
+    </div>
+    <div class="card">
+      <h2>河面俯视：四种过法的路线（水从左往右流）</h2>
+      <p class="muted hint375">河面图较宽，可左右滑动。</p><div class="mapbox scroll"><svg id="map" viewBox="0 0 960 420" role="img" aria-label="河面路线图"></svg></div>
+      <div class="legend" id="legend"></div>
+      <p class="muted" id="mapNote"></p>
+    </div>
+    <div class="card">
+      <h2>四种过法并排比</h2>
+      <p class="muted hint375">表格较宽，可左右滑动。</p>
+      <div class="scroll"><table class="cmp" id="cmp"></table></div>
+    </div>
+    <div class="card" id="sugCard">
+      <h2>改一下就能走通（点一下代回重算）</h2>
+      <div id="sugs"></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>带走结果</h2>
+    <div class="dl">
+      <button id="dlCSV">CSV 表格</button><button id="dlMD">Markdown 报告</button><button id="dlPNG">结果卡 PNG</button><button id="dlJSON" class="ghost">JSON 备份</button>
+      <button id="reset" class="ghost">恢复默认</button>
+    </div>
+    <p class="muted" style="margin-top:6px">输入自动保存在这台设备的浏览器里，刷新还在。</p>
+  </div>
+
+  <div class="card how">
+    <h2>怎么算的</h2>
+    <p><b>水速</b>：只随离岸距离变。「中间快、两边慢」用抛物线：离岸 y 米处水速 = 靠岸 + (中间 − 靠岸) × 4 × (y/河宽) × (1 − y/河宽)，全河平均 = 靠岸 + (中间 − 靠岸) × 2/3。</p>
+    <p><b>固定方向游</b>：朝向从「正对对岸」量起，往上游偏 θ。过河要 河宽 ÷ (你的速度 × cosθ) 秒，上岸点在下游 河宽 × (平均水速 − 你的速度 × sinθ) ÷ (你的速度 × cosθ) 米。中间水再急，只要全河平均水速比你慢，就有一个固定角度能正好游到树下。</p>
+    <p><b>一直盯着树</b>：每一刻都朝树的方向游，路线用 RK4 数值积分一步步推出来。水快的时候它会被冲出一条大弯，比定好角度慢。</p>
+    <p><b>斜着游＋上岸走</b>：在「能连续游完」的固定方向里，找「游的时间 + 上岸走回树下的时间」最短的那个。走路比游泳快时，它常常比死磕直达更快。</p>
+    <p class="muted">没考虑：浪、风、漩涡、回流、体力随时间下降、边游边换方向的最优路线、岸边能不能上去。这是算账的示意，不是下水安全建议；野外游泳请看当地规定和救生条件，不要一个人下水。</p>
+  </div>
+</div>
+
+  <script>
+/* 对岸那棵树 · 计算核心
+ * 一条河，宽 W 米，水往下游流。你从这岸 (0, 0) 下水，想到对岸那棵树 (D, W)（D > 0 在下游，D < 0 在上游）。
+ * 坐标：x 顺水方向（下游为正），y 垂直河岸指向对岸。
+ * 水速只随离岸距离变：均匀 u(y) = uMid；或中间快两边慢 u(y) = uBank + (uMid − uBank)·4·(y/W)(1 − y/W)。
+ * 你相对水的速度 v 固定；朝向 θ 从「正对对岸」量起，往上游偏为正：
+ *   速度 = ( u(y) − v·sinθ , v·cosθ )。
+ * 四种过法：
+ *   across 垂直横渡：θ = 0，上岸再沿岸走到树；
+ *   chase  一直盯着树：每一刻都朝树游（追踪曲线，数值积分）；
+ *   aim    定好角度直奔树：固定 θ 使上岸点正好是树；
+ *   best   固定角度 + 上岸走，总时间最短（在「能连续游多久」之内）。
+ * 固定角度的上岸点有闭式：x = W·(ū − v·sinθ)/(v·cosθ)，ū 是全河宽平均水速；游的时间 W/(v·cosθ)。
+ * 不算：浪、风、体力衰减、边游边调方向的最优路线（Zermelo 问题）、岸边能不能上去。 */
+(function (root) {
+  'use strict';
+  function Bad(message, field) { const e = new Error(message); e.field = field; return e; }
+  const DEG = Math.PI / 180;
+
+  /* [名称, 下限, 上限, 单位] */
+  const NUM = {
+    width: ['河宽', 5, 5000, '米'],
+    uMid: ['河中间水速', 0, 5, '米/秒'],
+    uBank: ['靠岸水速', 0, 5, '米/秒'],
+    v: ['你在静水里的速度', 0.1, 5, '米/秒'],
+    target: ['树离正对面的距离', -5000, 5000, '米'],
+    walk: ['上岸后走路速度', 0.1, 5, '米/秒'],
+    limit: ['最多能连续游多久', 1, 600, '分钟'],
+  };
+  const KEYS = ['width', 'profile', 'uMid', 'uBank', 'v', 'target', 'walk', 'limit'];
+
+  function fmtN(x) { return Math.abs(x) >= 10000 ? x.toLocaleString('en-US') : String(x); }
+  function num(v, k) {
+    const [label, lo, hi, unit] = NUM[k];
+    const s = String(v == null ? '' : v).replace(/[,，\s]/g, '');
+    if (s === '') throw Bad(label + '没填', k);
+    if (!/^-?\d+(\.\d+)?$/.test(s)) throw Bad(label + '要填数字（现在是「' + String(v).slice(0, 12) + '」）', k);
+    const x = +s;
+    if (x < lo || x > hi) throw Bad(label + '要在 ' + fmtN(lo) + ' 到 ' + fmtN(hi) + ' ' + unit + '之间', k);
+    return x;
+  }
+  function parse(inp) {
+    const P = {};
+    for (const k of Object.keys(NUM)) P[k] = num(inp[k], k);
+    P.profile = inp.profile === 'flat' ? 'flat' : inp.profile === 'mid' ? 'mid' : null;
+    if (!P.profile) throw Bad('水流分布要选「全河一样快」或「中间快、两边慢」', 'profile');
+    if (P.profile === 'flat') P.uBank = P.uMid;
+    else if (P.uBank > P.uMid) throw Bad('靠岸水速不能比河中间快（河中间是 ' + P.uMid + ' 米/秒）', 'uBank');
+    return P;
+  }
+
+  /* 水速与它的积分 */
+  function u(P, y) { if (P.profile === 'flat') return P.uMid; const s = y / P.width; return P.uBank + (P.uMid - P.uBank) * 4 * s * (1 - s); }
+  function uInt(P, y) { if (P.profile === 'flat') return P.uMid * y; const W = P.width; return P.uBank * y + (P.uMid - P.uBank) * 4 * (y * y / (2 * W) - y * y * y / (3 * W * W)); }
+  function uMean(P) { return uInt(P, P.width) / P.width; }
+
+  /* 固定角度 θ（弧度）：到达离岸 y 时的 x，上岸点与时间 */
+  function fixedX(P, th, y) { return (uInt(P, y) - P.v * Math.sin(th) * y) / (P.v * Math.cos(th)); }
+  function fixed(P, th) {
+    const t = P.width / (P.v * Math.cos(th)), x = fixedX(P, th, P.width), walkM = Math.abs(P.target - x);
+    return { th, t, x, walkM, walkT: walkM / P.walk, total: t + walkM / P.walk, water: P.v * t };
+  }
+
+  /* 定好角度直奔树：v·sinθ + k·v·cosθ = ū，k = D/W → sin(θ + φ) = ū /(v√(1+k²))，φ = atan k */
+  function aimAngle(P) {
+    const k = P.target / P.width, ub = uMean(P), q = ub / (P.v * Math.sqrt(1 + k * k));
+    if (q > 1 + 1e-12) return null;
+    const th = Math.asin(Math.min(1, q)) - Math.atan(k);
+    if (Math.cos(th) <= 1e-9) return null;
+    return th;
+  }
+  /* 冲得最少的角度：ū > v 时 sinθ = v/ū，最少冲 W√(ū² − v²)/v；ū ≤ v 时能正对面上岸 */
+  function leastDrift(P) {
+    const ub = uMean(P);
+    if (ub <= P.v) return { th: Math.asin(ub / P.v), x: 0 };
+    const th = Math.asin(P.v / ub);
+    return { th, x: P.width * Math.sqrt(ub * ub - P.v * P.v) / P.v };
+  }
+
+  /* 固定角度里总时间最短（游的时间不超过 limit；没有可行角度时去掉限制并标出来） */
+  function bestFixed(P) {
+    const L = P.limit * 60, tmin = P.width / P.v;
+    const capped = tmin <= L;
+    const thMax = capped ? Math.min(89.9 * DEG, Math.acos(Math.min(1, tmin / L))) : 89.9 * DEG;
+    const f = (th) => fixed(P, th).total;
+    let bt = 0, bv = f(0);
+    const N = 3600;
+    for (let i = 0; i <= N; i++) { const th = -thMax + 2 * thMax * i / N, z = f(th); if (z < bv) { bv = z; bt = th; } }
+    /* 黄金分割在最优格点两侧细化 */
+    let a = Math.max(-thMax, bt - 2 * thMax / N), b = Math.min(thMax, bt + 2 * thMax / N);
+    const g = (Math.sqrt(5) - 1) / 2;
+    let c = b - g * (b - a), d = a + g * (b - a), fc = f(c), fd = f(d);
+    for (let i = 0; i < 80; i++) { if (fc < fd) { b = d; d = c; fd = fc; c = b - g * (b - a); fc = f(c); } else { a = c; c = d; fc = fd; d = a + g * (b - a); fd = f(d); } }
+    const tm = (a + b) / 2; if (f(tm) < bv) bt = tm;
+    /* 候选里加上「直奔树」那个角度（总时间是分段函数，拐点可能正好在那儿） */
+    const ta = aimAngle(P);
+    if (ta != null && Math.abs(ta) <= thMax + 1e-12 && f(ta) <= f(bt)) bt = ta;
+    return Object.assign(fixed(P, bt), { capped });
+  }
+
+  /* 一直盯着树：RK4 积分追踪曲线 */
+  const CHASE_MAX = 6 * 3600;
+  function chase(P) {
+    const W = P.width, D = P.target, v = P.v;
+    const vel = (x, y) => { const dx = D - x, dy = W - y, r = Math.hypot(dx, dy) || 1e-12; return [u(P, y) + v * dx / r, v * dy / r]; };
+    let x = 0, y = 0, t = 0;
+    const pts = [[0, 0, 0]];
+    let steps = 0, end = 'timeout';
+    while (t < CHASE_MAX && steps < 400000) {
+      const r = Math.hypot(D - x, W - y);
+      if (r < 0.02) { t += r / v; x = D; y = W; end = 'tree'; break; }
+      const h = Math.min(0.5, 0.1 * r / (v + P.uMid + 1e-9));
+      const k1 = vel(x, y), k2 = vel(x + h / 2 * k1[0], y + h / 2 * k1[1]), k3 = vel(x + h / 2 * k2[0], y + h / 2 * k2[1]), k4 = vel(x + h * k3[0], y + h * k3[1]);
+      const nx = x + h / 6 * (k1[0] + 2 * k2[0] + 2 * k3[0] + k4[0]), ny = y + h / 6 * (k1[1] + 2 * k2[1] + 2 * k3[1] + k4[1]);
+      if (ny >= W) { const f = (W - y) / (ny - y); t += h * f; x = x + (nx - x) * f; y = W; end = Math.abs(D - x) < 0.05 ? 'tree' : 'bank'; break; }
+      x = nx; y = ny; t += h; steps++;
+      if (steps % 20 === 0) pts.push([x, y, t]);
+    }
+    pts.push([x, y, t]);
+    if (end === 'timeout') return { ok: false, t, x, y, pts, end };
+    const walkM = Math.abs(D - x);
+    return { ok: true, t, x, walkM, walkT: walkM / P.walk, total: t + walkM / P.walk, water: v * t, pts, end };
+  }
+
+  function calculate(inp) {
+    const P = parse(inp);
+    const L = P.limit * 60, ub = uMean(P);
+    const S = {};
+    S.across = Object.assign(fixed(P, 0), { id: 'across', ok: true });
+    S.chase = Object.assign(chase(P), { id: 'chase' });
+    const ta = aimAngle(P);
+    S.aim = ta == null ? { id: 'aim', ok: false, th: null } : Object.assign(fixed(P, ta), { id: 'aim', ok: true });
+    if (S.aim.ok) { S.aim.x = P.target; S.aim.walkM = 0; S.aim.walkT = 0; S.aim.total = S.aim.t; }
+    S.best = Object.assign(bestFixed(P), { id: 'best', ok: true });
+    const order = ['across', 'chase', 'aim', 'best'];
+    order.forEach((k) => { const s = S[k]; s.overLimit = s.ok ? s.t > L + 1e-9 : null; });
+    /* 能走通的里面挑总时间最短 */
+    const feas = order.filter((k) => S[k].ok && !S[k].overLimit);
+    let win = null;
+    feas.forEach((k) => { if (!win || S[k].total < S[win].total - 1e-6) win = k; });
+    const ld = leastDrift(P);
+    const r = { P, S, order, win, ub, ld, L, uMax: Math.max(P.uMid, P.uBank) };
+    r.summary = summary(r); r.facts = facts(r);
+    return r;
+  }
+
+  /* ── 文字 ── */
+  const NAME = { across: '垂直横渡', chase: '一直盯着树游', aim: '定好角度直奔树', best: '斜着游＋上岸走' };
+  function mmss(s) { const n = Math.round(s); if (n < 60) return n + ' 秒'; if (n >= 3600) { const h = Math.floor(n / 3600), m = Math.round((n % 3600) / 60); return h + ' 小时' + (m ? ' ' + m + ' 分' : ''); } const m = Math.floor(n / 60), r = n % 60; return m + ' 分' + (r ? ' ' + r + ' 秒' : '钟'); }
+  function m0(x) { const n = Math.round(x); return (n < 0 ? '−' : '') + Math.abs(n).toLocaleString('en-US') + ' 米'; }
+  function f2(x) { return (Math.round(x * 100) / 100).toFixed(2).replace(/\.?0+$/, ''); }
+  function ang(th) { const d = Math.round(th / DEG * 10) / 10; return d === 0 ? '正对对岸' : (d > 0 ? '往上游偏 ' : '往下游偏 ') + Math.abs(d).toFixed(1) + '°'; }
+  function where(P, x) { const d = Math.round(x - P.target); return d === 0 ? '树下' : '树的' + (d > 0 ? '下游 ' : '上游 ') + Math.abs(d).toLocaleString('en-US') + ' 米'; }
+  function pace(v) { return Math.round(100 / v) + ' 秒/百米'; }
+
+  function summary(r) {
+    const P = r.P, S = r.S;
+    if (!r.win) {
+      const b = S.best;
+      return '按最多连续游 ' + f2(P.limit) + ' 分钟，四种过法都过不去：最短也要游 ' + mmss(P.width / P.v) + '（垂直横渡），比能游的时长多 ' + mmss(P.width / P.v - r.L) + '。' + (b ? '' : '');
+    }
+    const w = S[r.win];
+    let s = '最快是「' + NAME[r.win] + '」：' + (w.th != null && r.win !== 'chase' ? ang(w.th) + '，' : '') + '游 ' + mmss(w.t);
+    if (w.walkM >= 0.5) s += '，上岸在' + where(P, w.x) + '，再走 ' + mmss(w.walkT);
+    s += '，一共 ' + mmss(w.total) + '到树下。';
+    if (r.win !== 'chase') {
+      const c = S.chase;
+      if (!c.ok) s += '一直盯着树游的话，' + mmss(CHASE_MAX) + '都到不了。';
+      else s += '一直盯着树游要 ' + mmss(c.total) + (c.overLimit ? '，还超过了能游的时长' : '') + '。';
+    }
+    return s;
+  }
+  function facts(r) {
+    const P = r.P, S = r.S, f = [];
+    const ub = r.ub;
+    if (P.profile === 'mid') {
+      if (P.uMid > P.v) f.push('河中间水速 ' + f2(P.uMid) + ' 米/秒比你快（你 ' + f2(P.v) + '），游到中间停一下就会往下游退；全河平均水速 ' + f2(ub) + (ub < P.v ? '，还比你慢，所以定死角度仍能直达。' : '，也不比你慢，所以定死角度到不了正对面。'));
+      else f.push('水速中间 ' + f2(P.uMid) + '、靠岸 ' + f2(P.uBank) + ' 米/秒，全河平均 ' + f2(ub) + '，都比你 ' + f2(P.v) + ' 慢。');
+    } else f.push('全河水速 ' + f2(P.uMid) + ' 米/秒，你在静水里 ' + f2(P.v) + ' 米/秒（' + pace(P.v) + '）。');
+    const A = S.across;
+    f.push('垂直横渡：' + mmss(A.t) + '上岸（最短的游法），被冲到下游 ' + m0(A.x) + '，上岸在' + where(P, A.x) + (A.walkM >= 0.5 ? '，走回去 ' + mmss(A.walkT) : '') + '。');
+    const C = S.chase;
+    if (!C.ok) f.push('一直盯着树：越游越被冲向下游，' + mmss(CHASE_MAX) + '都没上岸。');
+    else f.push('一直盯着树：路线是一条往下游鼓出去的弯，游 ' + mmss(C.t) + '（相当于静水里游 ' + m0(C.water) + '）' + (C.end === 'tree' ? '到树下' : '，上岸在' + where(P, C.x) + '，再走 ' + mmss(C.walkT)) + '。');
+    const M = S.aim;
+    if (M.ok) f.push('定好角度直奔树：' + ang(M.th) + '一路不变，游 ' + mmss(M.t) + '正好到树下' + (M.overLimit ? '，但超过了能连续游的 ' + f2(P.limit) + ' 分钟（多 ' + mmss(M.t - r.L) + '）' : '，比能游的时长少 ' + mmss(r.L - M.t)) + '。');
+    else f.push('定好角度直奔树：做不到。平均水速 ' + f2(ub) + ' 太快，怎么斜都会被冲到树的下游；冲得最少的是' + ang(r.ld.th) + '，也要被冲到下游 ' + m0(r.ld.x) + '。');
+    const B = S.best;
+    f.push('斜着游＋上岸走：在固定方向里挑总时间最短的，' + ang(B.th) + '，游 ' + mmss(B.t) + '，上岸在' + where(P, B.x) + (B.walkM >= 0.5 ? '，再走 ' + mmss(B.walkT) : '') + '，共 ' + mmss(B.total) + (B.capped ? '' : '（这个已经超过能游的时长）') + '。');
+    return f;
+  }
+
+  /* ── 建议：能代回输入的改动 ── */
+  function withP(inp, patch) { return Object.assign({}, inp, patch); }
+  function suggestions(inp, r) {
+    const P = r.P, S = r.S, out = [];
+    /* 1. 换下水点：从上游/下游走一段再下水，垂直横渡正好冲到树下 */
+    const sh = Math.round(S.across.x - P.target);
+    if (Math.abs(sh) >= 1 && Math.abs(S.across.x) <= 5000) {
+      out.push({ id: 'start', text: '先在这岸往' + (sh > 0 ? '上游' : '下游') + '走 ' + Math.abs(sh).toLocaleString('en-US') + ' 米再下水，垂直横渡游 ' + mmss(S.across.t) + '就被冲到树下，上岸不用再走（这岸先走 ' + mmss(Math.abs(sh) / P.walk) + '）', apply: withP(inp, { target: String(Math.round(S.across.x)) }) });
+    }
+    /* 2. 定角度直达不行或超时：速度要提到多少（0.01 米/秒一档） */
+    const aimOk = (vv) => { const Q = Object.assign({}, P, { v: vv }), th = aimAngle(Q); return th != null && P.width / (vv * Math.cos(th)) <= r.L + 1e-9; };
+    if (!(S.aim.ok && !S.aim.overLimit)) {
+      let lo = Math.round(P.v * 100), hi = 500;
+      if (aimOk(hi / 100)) {
+        while (hi - lo > 1) { const m = Math.floor((lo + hi) / 2); if (aimOk(m / 100)) hi = m; else lo = m; }
+        out.push({ id: 'speed', text: '速度练到 ' + f2(hi / 100) + ' 米/秒（' + pace(hi / 100) + '），定好角度直奔树就能在 ' + f2(P.limit) + ' 分钟内游到', apply: withP(inp, { v: String(hi / 100) }) });
+      }
+    }
+    /* 3. 定角度能直达但超时：能连续游多久才够（整分钟） */
+    if (S.aim.ok && S.aim.overLimit) {
+      const need = Math.ceil(S.aim.t / 60 - 1e-9);
+      if (need <= 600) out.push({ id: 'limit', text: '能连续游到 ' + need + ' 分钟，就可以定好角度直奔树（要游 ' + mmss(S.aim.t) + '）', apply: withP(inp, { limit: String(need) }) });
+    }
+    return out;
+  }
+
+  /* ── 画图用：每种过法的路线点 ── */
+  function path(r, id) {
+    const P = r.P, s = r.S[id];
+    if (!s.ok) return null;
+    if (id === 'chase') return s.pts.map((p) => [p[0], p[1]]);
+    const pts = [];
+    for (let i = 0; i <= 60; i++) { const y = P.width * i / 60; pts.push([fixedX(P, s.th, y), y]); }
+    return pts;
+  }
+
+  /* ── 导出 ── */
+  function csvCell(v) { const s = String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
+  const LAB = { profile: '水流分布' };
+  function label(k) { return LAB[k] || NUM[k][0] + '（' + NUM[k][3] + '）'; }
+  function val(P, k) { return k === 'profile' ? (P.profile === 'flat' ? '全河一样快' : '中间快、两边慢') : P[k]; }
+  const r3 = (x) => Math.round(x * 1000) / 1000;
+  function rows(r) {
+    return r.order.map((k) => {
+      const s = r.S[k];
+      if (!s.ok) return [NAME[k], k === 'aim' ? '做不到' : '到不了', '', '', '', '', '', ''];
+      return [NAME[k], k === 'chase' ? '随时朝树' : ang(s.th), r3(s.t), r3(s.water), r3(s.x - r.P.target), r3(s.walkM), r3(s.total), s.overLimit ? '超过能游时长' : '能游完'];
+    });
+  }
+  function toCSV(r, stamp) {
+    const P = r.P, L = [['对岸那棵树', '生成于 ' + stamp], ['结论', r.summary], []];
+    L.push(['输入', '值']); KEYS.forEach((k) => L.push([label(k), val(P, k)]));
+    L.push(['全河平均水速（米/秒）', r3(r.ub)]);
+    L.push([], ['过法', '朝向', '游多久（秒）', '相当于静水游（米）', '上岸点离树（米，下游为正）', '上岸走（米）', '总用时（秒）', '体力']);
+    rows(r).forEach((x) => L.push(x));
+    L.push([], ['序号', '说明']); r.facts.forEach((x, i) => L.push([i + 1, x]));
+    return L.map((row) => row.map(csvCell).join(',')).join('\n') + '\n';
+  }
+  function toMD(r, stamp, sg) {
+    const P = r.P, o = [];
+    o.push('# 对岸那棵树', '', '生成时间：' + stamp + '　默认的河和人都是虚构的示例', '', '**' + r.summary + '**', '');
+    r.facts.forEach((x) => o.push('- ' + x));
+    o.push('', '## 条件', '', '| 项 | 值 |', '|---|---|');
+    KEYS.forEach((k) => o.push('| ' + label(k) + ' | ' + val(P, k) + ' |'));
+    o.push('', '## 四种过法', '', '| 过法 | 朝向 | 游多久 | 上岸点 | 上岸走 | 总用时 | 体力 |', '|---|---|---|---|---|---|---|');
+    r.order.forEach((k) => {
+      const s = r.S[k];
+      if (!s.ok) o.push('| ' + NAME[k] + ' | ' + (k === 'aim' ? '做不到' : '到不了') + ' | | | | | |');
+      else o.push('| ' + NAME[k] + ' | ' + (k === 'chase' ? '随时朝树' : ang(s.th)) + ' | ' + mmss(s.t) + ' | ' + where(P, s.x) + ' | ' + (s.walkM >= 0.5 ? m0(s.walkM) : '不用走') + ' | ' + mmss(s.total) + ' | ' + (s.overLimit ? '超过能游时长' : '能游完') + ' |');
+    });
+    if (sg && sg.length) { o.push('', '## 改一下就能走通'); sg.forEach((s) => o.push('- ' + s.text)); }
+    o.push('', '## 前提', '', '- 水速只随离岸距离变，不算浪、风、漩涡和体力下降。', '- 「斜着游＋上岸走」只在固定方向里比，边游边调方向的最优路线没算。', '- 这是算账的示意，不是下水安全建议；野外下水请看当地规定和救生条件。');
+    return o.join('\n') + '\n';
+  }
+
+  const DEFAULT = { width: '200', profile: 'mid', uMid: '1.2', uBank: '0.4', v: '1', target: '0', walk: '1.3', limit: '8' };
+  const PRESETS = [
+    ['默认：中间水比你快', DEFAULT],
+    ['树在下游 150 米', Object.assign({}, DEFAULT, { target: '150' })],
+    ['水很缓', Object.assign({}, DEFAULT, { profile: 'flat', uMid: '0.5', uBank: '0.5', limit: '20' })],
+    ['水比你快，怎么都直达不了', Object.assign({}, DEFAULT, { profile: 'flat', uMid: '1.2', uBank: '1.2', v: '0.9', limit: '15' })],
+  ];
+
+  const api = { DEFAULT, PRESETS, NUM, KEYS, NAME, parse, calculate, suggestions, u, uInt, uMean, fixed, fixedX, aimAngle, leastDrift, bestFixed, chase, path, mmss, m0, f2, ang, where, pace, toCSV, toMD, label, val, CHASE_MAX, DEG };
+  if (typeof module === 'object' && module.exports) module.exports = api; else root.AppCore = api;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+  </script>
+  <script>
+/* 对岸那棵树 · 界面层 */
+(function () {
+  'use strict';
+  const C = window.AppCore;
+  const KEY = 'far-bank-tree:v1';
+  const copy = (o) => JSON.parse(JSON.stringify(o));
+  const DEFAULT = C.DEFAULT, PRESETS = C.PRESETS, KEYS = C.KEYS;
+  const COL = { across: '#7a8a80', chase: '#c0573e', aim: '#3d6fae', best: '#2e8b57' };
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  let state = copy(DEFAULT);
+  let last = null;
+  const shown = { across: true, chase: true, aim: true, best: true };
+
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* 隐私模式忽略 */ } }
+  function load() {
+    try {
+      const o = JSON.parse(localStorage.getItem(KEY) || 'null');
+      if (!o || typeof o !== 'object' || Array.isArray(o)) return null;
+      const s = {};
+      for (const k of KEYS) { if (o[k] == null || typeof o[k] === 'object') return null; s[k] = String(o[k]).slice(0, 12); }
+      return s;
+    } catch (e) { return null; }
+  }
+  function fill() { KEYS.forEach((k) => { $(k).value = state[k]; }); $('uBank').disabled = state.profile === 'flat'; }
+
+  /* 地图坐标：x 方向（顺水）要能装下所有路线、起点与树 */
+  function frame(r, Wpx, Hpx, pad) {
+    const P = r.P, xs = [0, P.target];
+    r.order.forEach((k) => { const p = C.path(r, k); if (p) p.forEach((q) => xs.push(q[0])); });
+    let x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs);
+    const span = Math.max(x1 - x0, P.width * 0.6);
+    const mid = (x0 + x1) / 2; x0 = mid - span * 0.56; x1 = mid + span * 0.56;
+    const top = pad.t, bot = Hpx - pad.b, left = pad.l, right = Wpx - pad.r;
+    const sx = (right - left) / (x1 - x0), sy = (bot - top) / P.width;
+    return { X: (x) => left + (x - x0) * sx, Y: (y) => bot - y * sy, top, bot, left, right, x0, x1 };
+  }
+  function niceStep(span) { const raw = span / 6, p = Math.pow(10, Math.floor(Math.log10(raw))); return [1, 2, 5, 10].map((m) => m * p).find((s) => s >= raw); }
+
+  function renderMap(r) {
+    const P = r.P, Wpx = 960, Hpx = 420, F = frame(r, Wpx, Hpx, { t: 56, b: 56, l: 20, r: 20 });
+    let h = '';
+    h += '<rect x="0" y="0" width="' + Wpx + '" height="' + F.top + '" fill="#e5ecd9"/><rect x="0" y="' + F.bot + '" width="' + Wpx + '" height="' + (Hpx - F.bot) + '" fill="#e5ecd9"/>';
+    /* 河面：按水速深浅分 10 条 */
+    for (let i = 0; i < 10; i++) {
+      const y0 = P.width * i / 10, y1 = P.width * (i + 1) / 10, uu = C.u(P, (y0 + y1) / 2), k = r.uMax > 0 ? uu / r.uMax : 0;
+      const c = 'rgb(' + Math.round(222 - 60 * k) + ',' + Math.round(236 - 40 * k) + ',' + Math.round(246 - 18 * k) + ')';
+      h += '<rect x="0" y="' + F.Y(y1).toFixed(1) + '" width="' + Wpx + '" height="' + (F.Y(y0) - F.Y(y1) + 0.5).toFixed(1) + '" fill="' + c + '"/>';
+    }
+    /* 水速箭头 */
+    for (let i = 1; i <= 4; i++) {
+      const y = P.width * i / 5, uu = C.u(P, y), L = r.uMax > 0 ? 18 + 50 * uu / r.uMax : 0, yy = F.Y(y);
+      if (uu <= 0) continue;
+      for (let j = 0; j < 3; j++) { const x = 120 + j * 300; h += '<path d="M' + x + ' ' + yy.toFixed(1) + 'h' + L.toFixed(1) + 'm-7 -4l7 4l-7 4" stroke="#7aa2c0" stroke-width="1.6" fill="none"/>'; }
+      h += '<text x="' + (Wpx - 24) + '" y="' + (yy - 4).toFixed(1) + '" text-anchor="end" font-size="11" fill="#5c7d96">' + C.f2(uu) + ' 米/秒</text>';
+    }
+    /* 岸线与刻度 */
+    h += '<line x1="0" x2="' + Wpx + '" y1="' + F.top + '" y2="' + F.top + '" stroke="#6b8a5a" stroke-width="2"/><line x1="0" x2="' + Wpx + '" y1="' + F.bot + '" y2="' + F.bot + '" stroke="#6b8a5a" stroke-width="2"/>';
+    const st = niceStep(F.x1 - F.x0);
+    for (let x = Math.ceil(F.x0 / st) * st; x <= F.x1; x += st) {
+      const px = F.X(x); h += '<line x1="' + px.toFixed(1) + '" x2="' + px.toFixed(1) + '" y1="' + F.bot + '" y2="' + (F.bot + 5) + '" stroke="#6b8a5a"/><text x="' + px.toFixed(1) + '" y="' + (F.bot + 18) + '" text-anchor="middle" font-size="11" fill="#5b6b60">' + (Math.round(x) || 0).toLocaleString('en-US') + '</text>';
+    }
+    h += '<text x="' + (Wpx - 20) + '" y="' + (Hpx - 10) + '" text-anchor="end" font-size="11" fill="#5b6b60">顺水方向距离（米），0 = 下水点</text>';
+    h += '<text x="20" y="' + (F.top - 8) + '" font-size="12" fill="#3f5a3a">对岸</text><text x="20" y="' + (F.bot + 34) + '" font-size="12" fill="#3f5a3a">这岸</text>';
+    /* 路线 */
+    const order = ['across', 'chase', 'aim', 'best'];
+    order.forEach((k) => {
+      const pts = C.path(r, k); if (!pts || !shown[k]) return;
+      const s = r.S[k], dash = s.overLimit ? ' stroke-dasharray="7 5"' : '';
+      const w = k === r.win ? 4 : 2.4;
+      h += '<polyline points="' + pts.map((q) => F.X(q[0]).toFixed(1) + ',' + F.Y(Math.min(q[1], P.width)).toFixed(1)).join(' ') + '" fill="none" stroke="' + COL[k] + '" stroke-width="' + w + '" stroke-linejoin="round"' + dash + '/>';
+      const lx = F.X(s.x);
+      if (s.walkM >= 0.5) h += '<line x1="' + lx.toFixed(1) + '" x2="' + F.X(P.target).toFixed(1) + '" y1="' + (F.top - 6 - order.indexOf(k) * 5) + '" y2="' + (F.top - 6 - order.indexOf(k) * 5) + '" stroke="' + COL[k] + '" stroke-width="2" stroke-dasharray="2 3"/>';
+      h += '<circle cx="' + lx.toFixed(1) + '" cy="' + F.top + '" r="4.5" fill="#fff" stroke="' + COL[k] + '" stroke-width="2.4"/>';
+    });
+    /* 下水点与树 */
+    h += '<circle cx="' + F.X(0).toFixed(1) + '" cy="' + F.bot + '" r="6" fill="#1f2a24"/><text x="' + F.X(0).toFixed(1) + '" y="' + (F.bot + 34) + '" text-anchor="middle" font-size="12" font-weight="700" fill="#1f2a24">下水点</text>';
+    const tx = F.X(P.target);
+    h += '<g transform="translate(' + tx.toFixed(1) + ',' + F.top + ')"><rect x="-2" y="-30" width="4" height="16" fill="#6b4a2b"/><circle cx="0" cy="-36" r="11" fill="#3f7d4a"/><circle cx="-7" cy="-30" r="7" fill="#4f9258"/><circle cx="7" cy="-30" r="7" fill="#4f9258"/></g>';
+    const right = tx > Wpx - 120; h += '<text x="' + (right ? tx - 18 : tx + 18).toFixed(1) + '" y="' + (F.top - 30) + '" text-anchor="' + (right ? 'end' : 'start') + '" font-size="12" font-weight="700" fill="#2b5a33">那棵树</text>';
+    $('map').innerHTML = h;
+    $('legend').innerHTML = order.map((k) => '<label><input type="checkbox" data-route="' + k + '"' + (shown[k] ? ' checked' : '') + (r.S[k].ok ? '' : ' disabled') + '><i style="--c:' + COL[k] + '"></i>' + C.NAME[k] + (r.S[k].ok ? '' : '（' + (k === 'aim' ? '做不到' : '到不了') + '）') + '</label>').join('') + '<span>虚线 = 超过能连续游的时长；岸上点线 = 上岸后走的路</span>';
+    [].forEach.call(document.querySelectorAll('#legend input'), (cb) => cb.addEventListener('change', () => { shown[cb.dataset.route] = cb.checked; renderMap(last.r); }));
+    $('mapNote').textContent = '河宽 ' + P.width.toLocaleString('en-US') + ' 米，横向按比例；顺水方向比例随路线自动缩放，和横向不一定相同。颜色越深水越急。';
+  }
+  function renderTable(r) {
+    const P = r.P;
+    let h = '<tr><th>过法</th><th>朝向</th><th>游多久</th><th>静水里相当于游</th><th>上岸点</th><th>上岸再走</th><th>总用时</th><th>体力</th></tr>';
+    r.order.forEach((k) => {
+      const s = r.S[k];
+      if (!s.ok) { h += '<tr><td><i style="--c:' + COL[k] + '"></i>' + C.NAME[k] + '</td><td class="no" colspan="7" style="text-align:left">' + (k === 'aim' ? '做不到：平均水速比你快，怎么斜都会被冲到树的下游' : '到不了：越游越被冲向下游') + '</td></tr>'; return; }
+      h += '<tr' + (k === r.win ? ' class="win"' : '') + '><td><i style="--c:' + COL[k] + '"></i>' + C.NAME[k] + (k === r.win ? ' ★' : '') + '</td><td>' + (k === 'chase' ? '随时朝树' : C.ang(s.th)) + '</td><td>' + C.mmss(s.t) + '</td><td>' + C.m0(s.water) + '</td><td>' + C.where(P, s.x) + '</td><td>' + (s.walkM >= 0.5 ? C.m0(s.walkM) + '，' + C.mmss(s.walkT) : '不用走') + '</td><td>' + C.mmss(s.total) + '</td><td' + (s.overLimit ? ' class="no">超时长 ' + C.mmss(s.t - r.L) : '>能游完') + '</td></tr>';
+    });
+    $('cmp').innerHTML = h;
+  }
+  function sugList(sg) {
+    const box = $('sugs'); box.innerHTML = '';
+    sg.forEach((x) => {
+      const d = document.createElement('div'); d.className = 'sug';
+      d.innerHTML = '<span>' + esc(x.text) + '</span>';
+      const bt = document.createElement('button'); bt.textContent = '照这样算'; bt.dataset.sug = x.id;
+      bt.addEventListener('click', () => { state = copy(x.apply); fill(); run(); });
+      d.appendChild(bt); box.appendChild(d);
+    });
+    $('sugCard').style.display = sg.length ? '' : 'none';
+  }
+  function run() {
+    [].forEach.call(document.querySelectorAll('.bad'), (e) => e.classList.remove('bad'));
+    $('uBank').disabled = state.profile === 'flat';
+    try {
+      const r = C.calculate(state);
+      const sg = C.suggestions(state, r);
+      $('error').style.display = 'none'; $('out').style.display = '';
+      $('summary').textContent = r.summary;
+      $('summary').style.color = r.win ? '#1d4b3a' : '#a0362b';
+      $('facts').innerHTML = r.facts.map((f) => '<li>' + esc(f) + '</li>').join('');
+      $('paceNote').textContent = '你的速度 ' + C.f2(r.P.v) + ' 米/秒 ≈ 游泳池里 ' + C.pace(r.P.v) + '。';
+      last = { r, sg };
+      renderMap(r); renderTable(r); sugList(sg);
+    } catch (e) {
+      last = null;
+      if (e.field) { const el = $(e.field); if (el) el.classList.add('bad'); }
+      $('error').textContent = '算不了：' + e.message; $('error').style.display = 'block';
+      $('out').style.display = 'none'; $('paceNote').textContent = '';
+    }
+    save();
+  }
+
+  /* ── 导出 ── */
+  function stamp() { const d = new Date(), z = (n) => String(n).padStart(2, '0'); return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()) + ' ' + z(d.getHours()) + ':' + z(d.getMinutes()); }
+  function download(name, blob) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000); }
+  function wrap(g, t, w) {
+    const NOHEAD = '，。、；：！？）」』%·～';
+    const out = []; let line = [];
+    const toks = String(t).match(/[+±<>−-]?[0-9][0-9,.:%/-]*(\s?(秒|米|分|°|小时))?|[A-Za-z_][A-Za-z0-9_.\-/]*|[\s\S]/g) || [];
+    const width = (a) => g.measureText(a.join('')).width;
+    for (const tk of toks) {
+      if (line.length && width(line.concat([tk])) > w) {
+        let carry = [tk];
+        while (line.length > 1 && (NOHEAD.indexOf(carry[0][0]) >= 0 || '（「『'.indexOf(line[line.length - 1]) >= 0)) carry.unshift(line.pop());
+        out.push(line.join(''));
+        line = carry; if (/^\s+$/.test(line[0])) line.shift();
+      } else line.push(tk);
+    }
+    if (line.length) out.push(line.join('')); return out;
+  }
+  function drawPNG(Lx) {
+    const r = Lx.r, P = r.P;
+    const Wd = 1080, H = 1350, X = 70, TW = 940;
+    const cv = document.createElement('canvas'); cv.width = Wd; cv.height = H;
+    const g = cv.getContext('2d'), FF = '"PingFang SC","Microsoft YaHei",sans-serif';
+    g.fillStyle = '#eef1ec'; g.fillRect(0, 0, Wd, H);
+    g.fillStyle = '#ffffff'; g.fillRect(36, 36, Wd - 72, H - 72);
+    g.fillStyle = '#55625a'; g.font = '24px ' + FF;
+    g.fillText('对岸那棵树 · 河宽 ' + P.width.toLocaleString('en-US') + ' 米 · ' + (P.profile === 'flat' ? '全河 ' + C.f2(P.uMid) : '中间 ' + C.f2(P.uMid) + '、靠岸 ' + C.f2(P.uBank)) + ' 米/秒 · 你 ' + C.f2(P.v) + ' 米/秒', X, 96);
+    g.fillStyle = r.win ? '#1d4b3a' : '#a0362b'; g.font = 'bold 32px ' + FF;
+    let y = 150;
+    wrap(g, r.summary, TW).slice(0, 4).forEach((l) => { g.fillText(l, X, y); y += 44; });
+    y += 14;
+    /* 地图：用同一套坐标 */
+    const MH = 400, F = frame(r, TW, MH, { t: 44, b: 40, l: 10, r: 10 });
+    g.save(); g.translate(X, y);
+    g.fillStyle = '#e5ecd9'; g.fillRect(0, 0, TW, F.top); g.fillRect(0, F.bot, TW, MH - F.bot);
+    for (let i = 0; i < 10; i++) {
+      const y0 = P.width * i / 10, y1 = P.width * (i + 1) / 10, uu = C.u(P, (y0 + y1) / 2), k = r.uMax > 0 ? uu / r.uMax : 0;
+      g.fillStyle = 'rgb(' + Math.round(222 - 60 * k) + ',' + Math.round(236 - 40 * k) + ',' + Math.round(246 - 18 * k) + ')';
+      g.fillRect(0, F.Y(y1), TW, F.Y(y0) - F.Y(y1) + 0.5);
+    }
+    g.strokeStyle = '#6b8a5a'; g.lineWidth = 2; g.beginPath(); g.moveTo(0, F.top); g.lineTo(TW, F.top); g.moveTo(0, F.bot); g.lineTo(TW, F.bot); g.stroke();
+    ['across', 'chase', 'aim', 'best'].forEach((k) => {
+      const pts = C.path(r, k); if (!pts) return;
+      const s = r.S[k];
+      g.strokeStyle = COL[k]; g.lineWidth = k === r.win ? 5 : 3; g.setLineDash(s.overLimit ? [10, 7] : []);
+      g.beginPath(); pts.forEach((q, i) => { const px = F.X(q[0]), py = F.Y(Math.min(q[1], P.width)); if (i) g.lineTo(px, py); else g.moveTo(px, py); }); g.stroke(); g.setLineDash([]);
+      g.fillStyle = '#fff'; g.beginPath(); g.arc(F.X(s.x), F.top, 6, 0, 7); g.fill(); g.stroke();
+    });
+    g.fillStyle = '#1f2a24'; g.beginPath(); g.arc(F.X(0), F.bot, 7, 0, 7); g.fill();
+    g.font = 'bold 16px ' + FF; g.textAlign = 'center'; g.fillText('下水点', F.X(0), F.bot + 28);
+    const tx = F.X(P.target);
+    g.fillStyle = '#6b4a2b'; g.fillRect(tx - 2, F.top - 26, 4, 16); g.fillStyle = '#3f7d4a'; g.beginPath(); g.arc(tx, F.top - 32, 11, 0, 7); g.fill();
+    g.fillStyle = '#2b5a33'; const rt = tx > TW - 120; g.textAlign = rt ? 'right' : 'left'; g.fillText('那棵树', rt ? tx - 18 : tx + 18, F.top - 22);
+    g.textAlign = 'left'; g.fillStyle = '#5b6b60'; g.font = '14px ' + FF; g.fillText('水从左往右流 →', TW - 130, F.bot + 28);
+    g.restore();
+    y += MH + 48;
+    /* 对照表 */
+    g.font = '22px ' + FF; g.fillStyle = '#2c3a32'; g.fillText('四种过法', X, y); y += 14;
+    const cols = [[X, 'left', '过法'], [X + 380, 'right', '游多久'], [X + 640, 'right', '上岸再走'], [X + 800, 'right', '总用时'], [X + TW, 'right', '体力']];
+    g.font = '16px ' + FF; g.fillStyle = '#6b776f'; y += 22; cols.forEach(([cx, al, t]) => { g.textAlign = al; g.fillText(t, cx, y); }); g.textAlign = 'left'; y += 4;
+    r.order.forEach((k) => {
+      const s = r.S[k];
+      if (k === r.win) { g.fillStyle = '#e6f3ea'; g.fillRect(X - 8, y + 6, TW + 16, 32); }
+      y += 30; g.fillStyle = COL[k]; g.fillRect(X, y - 8, 16, 4);
+      g.fillStyle = '#1f2a24'; g.font = (k === r.win ? 'bold ' : '') + '19px ' + FF;
+      const v = s.ok ? [C.NAME[k] + (k === r.win ? ' ★' : ''), C.mmss(s.t), s.walkM >= 0.5 ? C.m0(s.walkM) : '不用走', C.mmss(s.total), s.overLimit ? '超时长' : '能游完'] : [C.NAME[k], k === 'aim' ? '做不到' : '到不了', '', '', ''];
+      cols.forEach(([cx, al], i) => { g.textAlign = al; g.fillStyle = (i === 4 && s.overLimit) || (!s.ok && i === 1) ? '#a0362b' : '#1f2a24'; g.fillText(v[i], i === 0 ? cx + 26 : cx, y); }); g.textAlign = 'left';
+      y += 6;
+    });
+    y += 26;
+    g.font = '19px ' + FF; g.fillStyle = '#2c3a32';
+    /* 一条一条放，放不下整条就停，不切半句 */
+    for (const f of r.facts.slice(0, 1).concat(Lx.sg.map((s) => '可以改：' + s.text), r.facts.slice(1))) {
+      const ls = wrap(g, '· ' + f, TW);
+      if (y + (ls.length - 1) * 28 > H - 130) break;
+      ls.forEach((l) => { g.fillText(l, X, y); y += 28; });
+    }
+    g.fillStyle = '#6b776f'; g.font = '16px ' + FF;
+    wrap(g, '水速只随离岸距离变，不算浪、风、漩涡和体力下降。默认的河和人是虚构的；这是算账示意，不是下水安全建议。', TW).forEach((l, i) => g.fillText(l, X, H - 92 + i * 24));
+    return Promise.resolve(cv);
+  }
+  function backup() {
+    const r = last.r, o = {};
+    r.order.forEach((k) => { const s = r.S[k]; o[k] = s.ok ? { angleDeg: k === 'chase' ? null : +(s.th / C.DEG).toFixed(3), swimSec: +s.t.toFixed(3), landX: +s.x.toFixed(3), walkM: +s.walkM.toFixed(3), totalSec: +s.total.toFixed(3), overLimit: s.overLimit } : { possible: false }; });
+    return { app: '对岸那棵树', version: 1, savedAt: stamp(), input: copy(state), result: { summary: r.summary, fastest: r.win, meanCurrent: +r.ub.toFixed(6), routes: o } };
+  }
+  function init() {
+    KEYS.forEach((k) => $(k).addEventListener(k === 'profile' ? 'change' : 'input', () => { state[k] = $(k).value; run(); }));
+    PRESETS.forEach((p) => {
+      const b = document.createElement('button'); b.className = 'ghost'; b.textContent = p[0];
+      b.addEventListener('click', () => { state = copy(p[1]); fill(); run(); });
+      $('presets').appendChild(b);
+    });
+    $('reset').addEventListener('click', () => { state = copy(DEFAULT); fill(); run(); });
+    $('dlCSV').addEventListener('click', () => { if (last) download('对岸那棵树.csv', new Blob(['\ufeff' + C.toCSV(last.r, stamp())], { type: 'text/csv;charset=utf-8' })); });
+    $('dlMD').addEventListener('click', () => { if (last) download('对岸那棵树.md', new Blob([C.toMD(last.r, stamp(), last.sg)], { type: 'text/markdown;charset=utf-8' })); });
+    $('dlJSON').addEventListener('click', () => { if (last) download('对岸那棵树-备份.json', new Blob([JSON.stringify(backup(), null, 2)], { type: 'application/json' })); });
+    $('dlPNG').addEventListener('click', () => { if (last) drawPNG(last).then((cv) => cv.toBlob((b) => download('对岸那棵树-1080x1350.png', b), 'image/png')); });
+    state = load() || copy(DEFAULT);
+    fill(); run();
+    window.__ex = { last: () => last, state: () => state, presets: PRESETS, DEFAULT, drawPNG };
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+})();
+
+  </script>
+</body>
+</html>
